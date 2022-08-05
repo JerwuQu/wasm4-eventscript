@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.build.Builder) !void {
-    const lib = b.addSharedLibrary("cart", "src/main.zig", .unversioned);
+    const lib = b.addSharedLibrary("example", "src/example.zig", .unversioned);
 
     lib.setBuildMode(.ReleaseSmall);
     lib.setTarget(.{ .cpu_arch = .wasm32, .os_tag = .freestanding });

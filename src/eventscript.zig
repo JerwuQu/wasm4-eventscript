@@ -64,14 +64,11 @@ pub fn EventSystem(comptime T: type) type {
             // run the script
             // returns `true` when the script is finished
             pub fn tick(self: *Runner) bool {
-                if (self.eventI < self.script.len) {
-                    if (tickEvent(&self.script.*[self.eventI], self.eventTick, &self.eventState)) {
-                        self.eventI += 1;
-                        self.eventTick = 0;
-                    } else {
-                        self.eventTick += 1;
-                    }
+                while (self.eventI < self.script.len and tickEvent(&self.script.*[self.eventI], self.eventTick, &self.eventState)) {
+                    self.eventI += 1;
+                    self.eventTick = 0;
                 }
+                self.eventTick += 1;
                 return self.eventI >= self.script.len;
             }
         };
@@ -122,6 +119,7 @@ pub fn EventSystem(comptime T: type) type {
                             const eventName = args[0];
                             const argCtx = struct {
                                 raw: []const []const u8,
+                                count: usize,
 
                                 pub fn str(self: *const @This(), n: usize) []const u8 {
                                     return self.raw[n];
@@ -132,16 +130,14 @@ pub fn EventSystem(comptime T: type) type {
                                 pub fn uint(self: *const @This(), n: usize) usize {
                                     return std.fmt.parseUnsigned(usize, self.raw[n], 10) catch unreachable;
                                 }
-                            }{ .raw = args[1..] };
+                            }{ .raw = args[1..], .count = args.len - 1 };
 
                             var found = false;
                             for (@typeInfo(Event).Union.fields) |field| {
                                 if (std.mem.eql(u8, eventName, field.name)) {
-                                    if (!@hasDecl(field.field_type, "parse")) {
-                                        @compileError("Missing parse function for " ++ eventName);
-                                    }
+                                    const hasParse = @hasDecl(field.field_type, "parse");
                                     script = script ++ &[_]Event{
-                                        @unionInit(Event, eventName, field.field_type.parse(argCtx)),
+                                        @unionInit(Event, eventName, if(hasParse) field.field_type.parse(argCtx) else .{}),
                                     };
                                     found = true;
                                     args = &.{};

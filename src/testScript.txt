@@ -5,5 +5,5 @@ showText 60 "Hold on."
 showText 60 "Hold on.."
 showText 60 "Hold on..."
 dialogue "Good job!"
-wait 180
-dialogue "Wew..."
+dialogue "Time to restart?"
+restartScript
