@@ -1,9 +1,0 @@
-dialogue "Hi!"
-dialogue "Gonna need ya to press \x80 a few times, ok?"
-requirePresses 5
-showText 60 "Hold on."
-showText 60 "Hold on.."
-showText 60 "Hold on..."
-dialogue "Good job!"
-dialogue "Time to restart?"
-restartScript

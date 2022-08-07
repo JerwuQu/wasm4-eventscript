@@ -35,93 +35,65 @@ fn dialogueTextWrap(txt: []const u8, x: i32, y: i32, w: usize, charsShown: usize
     return row * 8;
 }
 
-const System = eventscript.EventSystem(union(enum(u8)) {
-    wait: struct {
-        duration: usize,
+fn wait(s: anytype, duration: usize) void {
+    if (s.eventTick + 1 < duration) {
+        s.keep();
+    }
+}
 
-        pub fn tick(self: *const @This(), eventTick: usize) bool {
-            return eventTick + 1 >= self.duration;
-        }
-        pub fn parse(comptime args: anytype) @This() {
-            return .{ .duration = args.uint(0) };
-        }
-    },
-    requirePresses: struct {
-        pub const State = struct {
-            presses: u8 = 0,
-        };
+var gReqPresses: u8 = 0;
+fn requirePresses(s: anytype, amount: u8) void {
+    if (padCheck(w4.BUTTON_1)) {
+        gReqPresses += 1;
+    }
+    if (gReqPresses < amount) {
+        w4.text("Presses left: ", 10, 40);
+        var buf: [2]u8 = undefined;
+        buf[0] = '0' + amount - gReqPresses;
+        buf[1] = 0;
+        w4.text(buf[0..2], 130, 40);
+        s.keep();
+    }
+}
+fn showText(s: anytype, text: []const u8, duration: u8) void {
+    if (s.eventTick < duration) {
+        w4.text(text, 20, 20);
+        s.keep();
+    }
+}
 
-        amount: u8,
+fn dialogue(s: anytype, text: []const u8) void {
+    if (!padCheck(w4.BUTTON_1)) {
+        w4.text("Dialogue", 20, 10);
+        const shownChars = s.eventTick / 2;
+        const allShown = shownChars >= text.len;
+        const h = dialogueTextWrap(text, 5, 22, 150, if (allShown) text.len else shownChars);
+        if (allShown and (s.eventTick / 30) % 2 == 0) {
+            w4.text("\x80", 20, 24 + h);
+        }
+        s.keep();
+    }
+}
 
-        pub fn tick(self: *const @This(), eventTick: usize, state: *State) bool {
-            _ = eventTick;
-            if (padCheck(w4.BUTTON_1)) {
-                state.presses += 1;
-                if (state.presses >= self.amount) {
-                    return true;
-                }
-            }
+fn restartScript(s: anytype) void {
+    s.eventI = 0;
+    s.eventTick = 0;
+    s.keep();
+}
 
-            w4.text("Presses left: ", 10, 40);
-            var buf: [2]u8 = undefined;
-            buf[0] = '0' + self.amount - state.presses;
-            buf[1] = 0;
-            w4.text(buf[0..2], 130, 40);
-            return false;
-        }
-        pub fn parse(comptime args: anytype) @This() {
-            return .{ .amount = args.uint(0) };
-        }
-    },
-    showText: struct {
-        text: []const u8,
-        duration: u8,
-
-        pub fn tick(self: *const @This(), eventTick: usize) bool {
-            if (eventTick >= self.duration) {
-                return true;
-            }
-
-            w4.text(self.text, 20, 20);
-            return false;
-        }
-        pub fn parse(comptime args: anytype) @This() {
-            return .{ .duration = args.uint(0), .text = args.str(1) };
-        }
-    },
-    dialogue: struct {
-        text: []const u8,
-
-        pub fn tick(self: *const @This(), eventTick: usize) bool {
-            if (padCheck(w4.BUTTON_1)) {
-                return true;
-            }
-
-            w4.text("Dialogue", 20, 10);
-            const shownChars = eventTick / 2;
-            const allShown = shownChars >= self.text.len;
-            const h = dialogueTextWrap(self.text, 5, 22, 150, if (allShown) self.text.len else shownChars);
-            if (allShown and (eventTick / 30) % 2 == 0) {
-                w4.text("\x80", 20, 24 + h);
-            }
-            return false;
-        }
-        pub fn parse(comptime args: anytype) @This() {
-            return .{ .text = args.str(0) };
-        }
-    },
-    restartScript: struct {
-        pub fn tick(self: *const @This(), eventTick: usize) bool {
-            _ = self;
-            _ = eventTick;
-            scriptRunner = System.Runner.init(&testScript);
-            return false;
-        }
-    },
+const MyScript = eventscript.Script(.{
+    .{dialogue, .{"Hi!"}},
+    .{dialogue, .{"Gonna need ya to press \x80 a few times, ok?"}},
+    .{requirePresses, .{5}},
+    .{showText, .{"Hold on.", 60}},
+    .{showText, .{"Hold on..", 60}},
+    .{showText, .{"Hold on...", 60}},
+    .{dialogue, .{"Good job!"}},
+    .{dialogue, .{"Time to restart?"}},
+    .{restartScript},
 });
 
-const testScript = System.parse(@embedFile("testScript.txt"));
-var scriptRunner = System.Runner.init(&testScript);
+var script = MyScript{};
 
 export fn update() void {
     w4.DRAW_COLORS.* = 2;
@@ -130,5 +102,5 @@ export fn update() void {
     gPadPressed = (gPad ^ gLastPad) & gPad;
     gLastPad = gPad;
 
-    _ = scriptRunner.tick();
+    script.tick();
 }
