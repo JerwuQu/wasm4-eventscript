@@ -86,7 +86,7 @@ const mySystem = eventscript.System(struct {
     }
 });
 
-const MyScript = mySystem.Script(.{
+const Script1 = mySystem.Script.create(.{
     .{"dialogue", .{"Hi!"}},
     .{"dialogue", .{"Gonna need ya to press \x80 a few times, ok?"}},
     .{"requirePresses", .{5}},
@@ -98,7 +98,7 @@ const MyScript = mySystem.Script(.{
     .{"restartScript"},
 });
 
-var script = MyScript{};
+var runner = mySystem.Runner{.script = &Script1};
 
 export fn update() void {
     w4.DRAW_COLORS.* = 2;
@@ -107,5 +107,5 @@ export fn update() void {
     gPadPressed = (gPad ^ gLastPad) & gPad;
     gLastPad = gPad;
 
-    script.tick();
+    runner.tick();
 }
