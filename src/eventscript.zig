@@ -76,16 +76,36 @@ pub fn System(comptime systemDef: type) type {
             }
         };
 
+        pub const ScriptCtx = struct {
+            script: *const Script,
+            kept: bool,
+            eventI: usize,
+            eventTick: usize,
+            eventState: EventStateUnion,
+        };
+
         pub const Runner = struct {
-            kept: bool = false,
-            eventI: usize = 0,
-            eventTick: usize = 0,
-            eventState: EventStateUnion = undefined,
+            stack: []RunCtx = &.{},
+            stackSize: usize = 0,
 
-            script: ?*const Script = null,
+            pub fn returnScript(self: *Runner) void {
 
+            }
+            pub fn execScript(self: *Runner, script: *const Script) void {
+                self.stack[self.stackSize - 1].script = script;
+                self.stack[self.stackSize - 1].kept = true; // incase this is ran from a script
+                self.stack[self.stackSize - 1].eventI = 0;
+                self.stack[self.stackSize - 1].eventTick = 0;
+            }
+            pub fn callScript(self: *Runner, script: *const Script) void {
+                if (self.stackSize + 1 >= self.stack.len) {
+                    // TODO: stack overflow
+                }
+                self.stackSize += 1;
+                self.execScript(script);
+            }
             pub fn keep(self: *Runner) void {
-                self.kept = true;
+                self.stack[self.stackSize - 1].kept = true;
             }
             pub fn tick(self: *Runner) void {
                 if (self.script) |scriptNN| {

@@ -79,10 +79,8 @@ const mySystem = eventscript.System(struct {
         }
     }
 
-    pub fn restartScript(s: anytype) void {
-        s.eventI = 0;
-        s.eventTick = 0;
-        s.keep();
+    pub fn runScript(s: anytype, script: *const mySystem.Script) void {
+        s.run(script);
     }
 });
 
@@ -94,8 +92,14 @@ const Script1 = mySystem.Script.create(.{
     .{"showText", .{"Hold on..", 60}},
     .{"showText", .{"Hold on...", 60}},
     .{"dialogue", .{"Good job!"}},
+    .{"dialogue", .{"Time for script 2?"}},
+    .{"runScript", .{&Script2}},
+    // TODO: calLScript, execScript, asyncScript
+});
+const Script2 = mySystem.Script.create(.{
+    .{"dialogue", .{"Ayo, this is the second script!"}},
+    .{"showText", .{"Just a sec...", 60}},
     .{"dialogue", .{"Time to restart?"}},
-    .{"restartScript"},
 });
 
 var runner = mySystem.Runner{.script = &Script1};
