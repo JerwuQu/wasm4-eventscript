@@ -1,26 +1,26 @@
 const std = @import("std");
 
-fn MakeEventInit(comptime SystemType: type, comptime RunnerType: type, entry: anytype) type {
+fn MakeEventInit(comptime SystemType: type, comptime CtxType: type, entry: anytype) type {
     const funcName = entry[0];
     return struct {
-        pub fn call(runnerInst: *RunnerType) void {
+        pub fn call(ctx: *CtxType) void {
             if (@hasField(SystemType.EventStateUnion, funcName)) {
-                runnerInst.eventState = @unionInit(SystemType.EventStateUnion, funcName, .{});
+                ctx.eventState = @unionInit(SystemType.EventStateUnion, funcName, .{});
             }
         }
     };
 }
 
-fn MakeEventTick(comptime SystemType: type, comptime RunnerType: type, entry: anytype) type {
+fn MakeEventTick(comptime SystemType: type, comptime CtxType: type, entry: anytype) type {
     const funcName = entry[0];
     const args = if (entry.len > 1) entry[1] else .{};
     return struct {
-        pub fn call(runnerInst: *RunnerType) void {
+        pub fn call(ctx: *CtxType) void {
             if (@hasField(SystemType.EventStateUnion, funcName)) {
-                var params = .{runnerInst, &@field(runnerInst.eventState, funcName)} ++ args;
+                var params = .{ctx, &@field(ctx.eventState, funcName)} ++ args;
                 @call(.{}, @field(SystemType.Def, funcName), params);
             } else {
-                var params = .{runnerInst} ++ args;
+                var params = .{ctx} ++ args;
                 @call(.{}, @field(SystemType.Def, funcName), params);
             }
         }
@@ -60,8 +60,8 @@ pub fn System(comptime systemDef: type) type {
 
         pub const Script = struct {
             const EventFns = struct {
-                init: fn (*Runner) void,
-                tick: fn (*Runner) void,
+                init: fn (*ScriptCtx) void,
+                tick: fn (*ScriptCtx) void,
             };
 
             events: []EventFns,
@@ -69,38 +69,67 @@ pub fn System(comptime systemDef: type) type {
             pub fn create(eventList: anytype) Script {
                 var eventFns: [eventList.len]Script.EventFns = undefined;
                 for (eventList) |entry, i| {
-                    eventFns[i].init = MakeEventInit(SystemType, Runner, entry).call;
-                    eventFns[i].tick = MakeEventTick(SystemType, Runner, entry).call;
+                    eventFns[i].init = MakeEventInit(SystemType, ScriptCtx, entry).call;
+                    eventFns[i].tick = MakeEventTick(SystemType, ScriptCtx, entry).call;
                 }
                 return Script{ .events = &eventFns };
             }
         };
 
-        pub const Runner = struct {
-            kept: bool = false,
-            eventI: usize = 0,
-            eventTick: usize = 0,
-            eventState: EventStateUnion = undefined,
+        pub const ScriptCtx = struct {
+            script: *const Script,
+            kept: bool,
+            eventI: usize,
+            eventTick: usize,
+            eventState: EventStateUnion,
 
-            script: ?*const Script = null,
-
-            pub fn keep(self: *Runner) void {
+            pub fn keep(self: *ScriptCtx) void {
                 self.kept = true;
             }
+        };
+
+        pub const Runner = struct {
+            stack: []ScriptCtx,
+            stackSize: usize = 0,
+
+            // pub fn asyncScript(self: *Runner, script: *const Script) void {
+            // }
+            pub fn init(stack: []ScriptCtx) Runner {
+                return Runner{ .stack = stack };
+            }
+            pub fn execScript(self: *Runner, script: *const Script) void {
+                self.stack[self.stackSize - 1].script = script;
+                self.stack[self.stackSize - 1].kept = true; // incase this is ran from a script
+                self.stack[self.stackSize - 1].eventI = 0;
+                self.stack[self.stackSize - 1].eventTick = 0;
+            }
+            pub fn callScript(self: *Runner, script: *const Script) void {
+                if (self.stackSize < self.stack.len) {
+                    self.stackSize += 1;
+                    self.execScript(script);
+                } else {
+                    // TODO: stack overflow
+                }
+            }
             pub fn tick(self: *Runner) void {
-                if (self.script) |scriptNN| {
-                    while (self.eventI < scriptNN.events.len) {
-                        self.kept = false;
-                        if (self.eventTick == 0) {
-                            scriptNN.events[self.eventI].init(self);
+                while (self.stackSize > 0) {
+                    var scriptCtx = &self.stack[self.stackSize - 1];
+                    if (scriptCtx.eventI >= scriptCtx.script.events.len) {
+                        self.stackSize -= 1;
+                        continue;
+                    }
+                    while (scriptCtx.eventI < scriptCtx.script.events.len) {
+                        scriptCtx.kept = false;
+                        if (scriptCtx.eventTick == 0) {
+                            scriptCtx.script.events[scriptCtx.eventI].init(scriptCtx);
                         }
-                        scriptNN.events[self.eventI].tick(self);
-                        self.eventTick += 1;
-                        if (self.kept) {
-                            break;
+                        scriptCtx.script.events[scriptCtx.eventI].tick(scriptCtx);
+                        scriptCtx.eventTick += 1;
+                        if (scriptCtx.kept) {
+                            return;
                         }
-                        self.eventI += 1;
-                        self.eventTick = 0;
+                        scriptCtx.eventI += 1;
+                        scriptCtx.eventTick = 0;
                     }
                 }
             }

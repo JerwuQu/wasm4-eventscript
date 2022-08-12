@@ -79,10 +79,9 @@ const mySystem = eventscript.System(struct {
         }
     }
 
-    pub fn restartScript(s: anytype) void {
-        s.eventI = 0;
-        s.eventTick = 0;
-        s.keep();
+    pub fn call(s: anytype, script: *const mySystem.Script) void {
+        _ = s;
+        runner.callScript(script);
     }
 });
 
@@ -94,11 +93,22 @@ const Script1 = mySystem.Script.create(.{
     .{"showText", .{"Hold on..", 60}},
     .{"showText", .{"Hold on...", 60}},
     .{"dialogue", .{"Good job!"}},
-    .{"dialogue", .{"Time to restart?"}},
-    .{"restartScript"},
+    .{"dialogue", .{"Time for script 2?"}},
+    .{"call", .{&Script2}},
+    .{"dialogue", .{"Did you enjoy script 2?"}},
+});
+const Script2 = mySystem.Script.create(.{
+    .{"dialogue", .{"Ayo, this is the second script!"}},
+    .{"showText", .{"Just a sec...", 60}},
+    .{"dialogue", .{"Okay bye"}},
 });
 
-var runner = mySystem.Runner{.script = &Script1};
+var scriptStack: [8]mySystem.ScriptCtx = undefined;
+var runner = mySystem.Runner.init(&scriptStack);
+
+export fn start() void {
+    runner.callScript(&Script1);
+}
 
 export fn update() void {
     w4.DRAW_COLORS.* = 2;
