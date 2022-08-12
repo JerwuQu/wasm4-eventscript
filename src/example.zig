@@ -20,7 +20,7 @@ fn dialogueTextWrap(txt: []const u8, x: i32, y: i32, w: usize, charsShown: usize
     var row: u16 = 0;
     while (i < txt.len and i <= charsShown) : (row += 1) {
         var wrapAt = @minimum(i + chW, txt.len);
-        if (txt.len > chW) {
+        if (txt.len > i + chW) {
             var j: usize = chW;
             while (j >= chW / 3) : (j -= 1) {
                 if (txt[i + j] == ' ') {
@@ -66,17 +66,25 @@ const mySystem = eventscript.System(struct {
         }
     }
 
-    pub fn dialogue(s: anytype, text: []const u8) void {
-        if (!padCheck(w4.BUTTON_1)) {
-            w4.text("Dialogue", 20, 10);
-            const shownChars = s.eventTick / 2;
-            const allShown = shownChars >= text.len;
-            const h = dialogueTextWrap(text, 5, 22, 150, if (allShown) text.len else shownChars);
-            if (allShown and (s.eventTick / 30) % 2 == 0) {
-                w4.text("\x80", 20, 24 + h);
+    pub const dialogueState = struct {
+        skipped: bool = false,
+    };
+    pub fn dialogue(s: anytype, state: *dialogueState, text: []const u8) void {
+        const shownChars = s.eventTick / 2;
+        const allShown = state.skipped or shownChars >= text.len;
+        if (padCheck(w4.BUTTON_1)) {
+            if (allShown) {
+                return;
+            } else {
+                state.skipped = true;
             }
-            s.keep();
         }
+        w4.text("Dialogue", 20, 10);
+        const h = dialogueTextWrap(text, 5, 22, 150, if (allShown) text.len else shownChars);
+        if (allShown and (s.eventTick / 30) % 2 == 0) {
+            w4.text("\x80", 20, 24 + h);
+        }
+        s.keep();
     }
 
     pub fn call(s: anytype, script: *const mySystem.Script) void {
