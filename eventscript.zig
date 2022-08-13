@@ -77,8 +77,9 @@ pub fn System(comptime systemDef: type) type {
         };
 
         pub const ScriptCtx = struct {
-            script: *const Script,
             kept: bool,
+            ignored: bool,
+            script: *const Script,
             eventI: usize,
             eventTick: usize,
             eventState: EventStateUnion,
@@ -99,9 +100,7 @@ pub fn System(comptime systemDef: type) type {
             }
             pub fn execScript(self: *Runner, script: *const Script) void {
                 self.stack[self.stackSize - 1].script = script;
-                self.stack[self.stackSize - 1].kept = true; // incase this is ran from a script
-                self.stack[self.stackSize - 1].eventI = 0;
-                self.stack[self.stackSize - 1].eventTick = 0;
+                self.restartScript();
             }
             pub fn callScript(self: *Runner, script: *const Script) void {
                 if (self.stackSize < self.stack.len) {
@@ -111,26 +110,40 @@ pub fn System(comptime systemDef: type) type {
                     // TODO: stack overflow
                 }
             }
+            pub fn returnScript(self: *Runner) void {
+                if (self.stackSize > 0) {
+                    self.stack[self.stackSize - 1].ignored = true; // incase this is ran from a script
+                    self.stackSize -= 1;
+                }
+            }
+            pub fn restartScript(self: *Runner) void {
+                var scriptCtx = &self.stack[self.stackSize - 1];
+                scriptCtx.eventTick = 0;
+                scriptCtx.eventI = 0;
+                scriptCtx.ignored = true; // incase this is ran from a script
+            }
             pub fn tick(self: *Runner) void {
                 while (self.stackSize > 0) {
                     var scriptCtx = &self.stack[self.stackSize - 1];
                     if (scriptCtx.eventI >= scriptCtx.script.events.len) {
-                        self.stackSize -= 1;
+                        self.stackSize -= 1; // return
                         continue;
                     }
-                    while (scriptCtx.eventI < scriptCtx.script.events.len) {
-                        scriptCtx.kept = false;
-                        if (scriptCtx.eventTick == 0) {
-                            scriptCtx.script.events[scriptCtx.eventI].init(scriptCtx);
-                        }
-                        scriptCtx.script.events[scriptCtx.eventI].tick(scriptCtx);
-                        scriptCtx.eventTick += 1;
-                        if (scriptCtx.kept) {
-                            return;
-                        }
-                        scriptCtx.eventI += 1;
-                        scriptCtx.eventTick = 0;
+                    scriptCtx.kept = false;
+                    scriptCtx.ignored = false;
+                    if (scriptCtx.eventTick == 0) {
+                        scriptCtx.script.events[scriptCtx.eventI].init(scriptCtx);
                     }
+                    scriptCtx.script.events[scriptCtx.eventI].tick(scriptCtx);
+                    if (scriptCtx.ignored) {
+                        continue;
+                    }
+                    scriptCtx.eventTick += 1;
+                    if (scriptCtx.kept) {
+                        return;
+                    }
+                    scriptCtx.eventI += 1;
+                    scriptCtx.eventTick = 0;
                 }
             }
         };
