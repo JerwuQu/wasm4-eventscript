@@ -98,6 +98,10 @@ pub fn System(comptime systemDef: type) type {
             pub fn init(stack: []ScriptCtx) Runner {
                 return Runner{ .stack = stack };
             }
+            pub fn startScript(self: *Runner, script: *const Script) void {
+                self.stackSize = 0;
+                self.callScript(script);
+            }
             pub fn execScript(self: *Runner, script: *const Script) void {
                 self.stack[self.stackSize - 1].script = script;
                 self.restartScript();
