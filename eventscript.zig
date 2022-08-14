@@ -80,6 +80,7 @@ pub fn System(comptime systemDef: type) type {
             kept: bool,
             ignored: bool,
             script: *const Script,
+            userData: ?*anyopaque,
             eventI: usize,
             eventTick: usize,
             eventState: EventStateUnion,
@@ -92,6 +93,7 @@ pub fn System(comptime systemDef: type) type {
         pub const Runner = struct {
             stack: []ScriptCtx,
             stackSize: usize = 0,
+            userData: ?*anyopaque = null,
 
             // pub fn asyncScript(self: *Runner, script: *const Script) void {
             // }
@@ -109,6 +111,7 @@ pub fn System(comptime systemDef: type) type {
                 self.callScript(script);
             }
             pub fn execScript(self: *Runner, script: *const Script) void {
+                self.stack[self.stackSize - 1].userData = self.userData;
                 self.stack[self.stackSize - 1].script = script;
                 self.restartScript();
             }
