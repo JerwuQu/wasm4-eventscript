@@ -60,8 +60,8 @@ pub fn System(comptime systemDef: type) type {
 
         pub const Script = struct {
             const EventFns = struct {
-                init: fn (*ScriptCtx) void,
-                tick: fn (*ScriptCtx) void,
+                init: *const fn (*ScriptCtx) void,
+                tick: *const fn (*ScriptCtx) void,
             };
 
             events: []EventFns,
@@ -69,8 +69,8 @@ pub fn System(comptime systemDef: type) type {
             pub fn create(eventList: anytype) Script {
                 var eventFns: [eventList.len]Script.EventFns = undefined;
                 for (eventList) |entry, i| {
-                    eventFns[i].init = MakeEventInit(SystemType, ScriptCtx, entry).call;
-                    eventFns[i].tick = MakeEventTick(SystemType, ScriptCtx, entry).call;
+                    eventFns[i].init = &MakeEventInit(SystemType, ScriptCtx, entry).call;
+                    eventFns[i].tick = &MakeEventTick(SystemType, ScriptCtx, entry).call;
                 }
                 return Script{ .events = &eventFns };
             }
