@@ -123,6 +123,11 @@ pub fn System(comptime systemDef: type) type {
                     // TODO: stack overflow
                 }
             }
+            pub fn jumpToIndex(self: *Runner, i: usize) void {
+                self.stack[self.stackSize - 1].eventI = i;
+                self.stack[self.stackSize - 1].eventTick = 0;
+                self.stack[self.stackSize - 1].ignored = true;
+            }
             pub fn returnScript(self: *Runner) void {
                 if (self.stackSize > 0) {
                     self.stack[self.stackSize - 1].ignored = true; // incase this is ran from a script
