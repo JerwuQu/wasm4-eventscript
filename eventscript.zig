@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn MakeEventInit(comptime SystemType: type, comptime CtxType: type, entry: anytype) type {
+fn MakeEventInit(comptime SystemType: type, comptime CtxType: type, comptime entry: anytype) type {
     const funcName = entry[0];
     return struct {
         pub fn call(ctx: *CtxType) void {
@@ -11,7 +11,7 @@ fn MakeEventInit(comptime SystemType: type, comptime CtxType: type, entry: anyty
     };
 }
 
-fn MakeEventTick(comptime SystemType: type, comptime CtxType: type, entry: anytype) type {
+fn MakeEventTick(comptime SystemType: type, comptime CtxType: type, comptime entry: anytype) type {
     const funcName = entry[0];
     const args = if (entry.len > 1) entry[1] else .{};
     return struct {
